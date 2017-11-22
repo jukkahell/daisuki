@@ -54,7 +54,7 @@ module.exports = {
                     if (!validCoordinate(yIndex)) continue;
 
                     if (cube[xIndex, yIndex, zIndex]) {
-                        nearest.push([xIndex, yIndex, zIndex, cube[newX, y, z]]);
+                        nearest.push([xIndex, yIndex, zIndex, cube[xIndex, yIndex, zIndex]]);
                     }
                 }
             }
