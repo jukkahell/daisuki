@@ -1,7 +1,7 @@
 module.exports = {
     setPlayerMovement (previous, current) {
         let bots = previous.map( b => {
-            let bot = current[current.find( o => o.name === b.name)];
+            let bot = current.fiter( o => o.name === b.name)[0];
             let movement = [];
             if (b.x != bot.x) {
                 if (bot.x > b.x) movement.push('+X');
