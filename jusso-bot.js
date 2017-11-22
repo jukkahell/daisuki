@@ -26,7 +26,7 @@ const getTasks = (tickInfo) => {
 
   cubeLength = tickInfo.gameInfo.edgeLength;
   cube = utils.createCube(cubeLength, others, bombs);
-
+  console.log("cube", cube);
   const nearestItems = utils.getNearestItems(me, cube);
   console.log("Nearest", nearestItems);
   
