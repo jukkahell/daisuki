@@ -66,49 +66,94 @@ const getDirections = (nextTickInfo) => {
   return botDirections;
 };
 
-var cubeLength, cube;
+var cubeLength, cube, bots;
 
 const getTasks = (tickInfo) => {
   const others = tickInfo.players.filter(p => p.name != tickInfo.currentPlayer.name);
+  if (!bots) {
+    bots = others
+  }
+  else {
+    setPlayerMovement(others);
+  }
+
   const me = tickInfo.players.filter(p => p.name === tickInfo.currentPlayer.name)[0];
   const bombs = tickInfo.items.filter(i => i.type === "BOMB");
   const playersInGame = others.length;
 
   cubeLength = tickInfo.gameInfo.edgeLength;
   cube = createCube(cubeLength, others, bombs);
-  
-  const nearestBomb = getNearestBomb(me); // [x, y, z]
 
+  const nearestItems = getNearestItems(me);
 };
+
+const setPlayerMovement = (others) => {
+
+  bots = bots.map( b => {
+    let bot = others[others.find( o => o.name === b.name)];
+    let movement = [];
+    if (b.x != bot.x) {
+      if (bot.x > b.x) movement.push('+X');
+      else movement.push('-X');
+    }
+    if (b.y != bot.y) {
+      if (bot.y > b.y) movement.push('+Y');
+      else movement.push('-Y');
+    }
+    if (b.z != bot.z) {
+      if (bot.z > b.z) movement.push('+Z');
+      else movement.push('-Z');
+    }
+    if (movement.length === 0) {
+      movement.push("NOOP");
+    }
+
+    let allMovements = [];
+    if(b.movements) {
+      allMovements = [...b.movements];
+      allMovements.push(movement);
+    }
+    else {
+      allMovements = movement;
+    }
+
+    bot.movements = allMovements;
+    return bot;
+  });
+
+}
 
 const getNearestItems = ({x, y, z}, level = 1) => {
 
   let nearest = [];
+  let zIndex = z, xIndex = x, yIndex = y;
+
   for (let zi = -level; zi <= level; zi++) {
-    let zIndex = z - +zi;
+    zIndex = z - +zi;
     if (!validCoordinate(zIndex)) continue;
 
     for (let xi = -level; xi <= level ; xi++ ) {
-      let xIndex = x + xi;
-      if (!validCoordinate(xIndex)) break;
+      xIndex = x + xi;
+      if (!validCoordinate(xIndex)) continue;
 
       for (let yi = -level; yi <= level ; yi++ ) {
-        let yIndex = y + yi;
-        if (!validCoordinate(yIndex)) break;
+        yIndex = y + yi;
+        if (!validCoordinate(yIndex)) continue;
 
         if (cube[xIndex, yIndex, zIndex]) {
-          nearest.push(cube[newX, y, z]);
+          nearest.push([xIndex, yIndex, zIndex, cube[newX, y, z]]);
         }
       }
     }
   }
 
-  if (nearest.length === 0) {
-    return getNearestItems({ x, y, z }, level++);
-  }
-  else {
+  if (nearest.length !== 0 || level === 5) {
     return nearest;
   }
+  else {
+    return getNearestItems({ x, y, z }, level++);
+  }
+  
   
   function validCoordinate (coordinate) {
     return coordinate >= 0 && coordinate < cubeLength;
