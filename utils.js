@@ -54,7 +54,7 @@ module.exports = {
                     if (!validCoordinate(yIndex)) continue;
 
                     if (cube[xIndex, yIndex, zIndex]) {
-                        nearest.push([xIndex, yIndex, zIndex, cube[xIndex, yIndex, zIndex]]);
+                        nearest.push([xIndex, yIndex, zIndex, cube[xIndex][yIndex][zIndex]]);
                     }
                 }
             }
@@ -77,11 +77,11 @@ module.exports = {
         let defaultArray = [...Array(length).fill( Array(length).fill( [...Array(length)]) )];
 
         for (let player of players) {
-            defaultArray[player.x, player.y, player.z] = "P";
+            defaultArray[player.x][player.y][player.z] = "P";
         }
         
         for (let bomb of bombs) {
-            defaultArray[bomb.x, bomb.y, bomb.z] = "P";
+            defaultArray[bomb.x][bomb.y][bomb.z] = "P";
         }
 
         return defaultArray;
