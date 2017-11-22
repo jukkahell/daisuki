@@ -1,134 +1,40 @@
 const http = require('http');
+const utils = require('./utils');
+
 const [port] = process.argv.slice(2);
 if (!port) {
   console.log('Pass port as command line argument...');
   process.exit(1);
 }
 
-const getRandomInt = (max, min = 0) => {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
 
-const getPlaceBombDirection = (nextTickInfo) => {
-  return {
-    task: 'BOMB',
-    x: getRandomInt(0, nextTickInfo.gameInfo.edgeLength),
-    y: getRandomInt(0, nextTickInfo.gameInfo.edgeLength),
-    z: getRandomInt(0, nextTickInfo.gameInfo.edgeLength)
-  }
-};
-
-const getNoopDirection = () => {
-  return {
-    task: 'NOOP'
-  }
-};
-
-const getMoveDirection = (nextTickInfo) => {
-  const allDirections = ['+X', '-X', '+Y', '-Y', '+Z', '-Z'];
-  const currentCoordinates = nextTickInfo.players.find(p => p.name === nextTickInfo.currentPlayer.name);
-
-  const badCoordinates = [];
-  if (currentCoordinates.x === 0) {
-    badCoordinates.push('-X');
-  }
-  if (currentCoordinates.x === nextTickInfo.gameInfo.edgeLength - 1) {
-    badCoordinates.push(('+X'));
-  }
-  if (currentCoordinates.y === 0) {
-    badCoordinates.push('-Y');
-  }
-  if (currentCoordinates.y === nextTickInfo.gameInfo.edgeLength - 1) {
-    badCoordinates.push(('+Y'));
-  }
-  if (currentCoordinates.z === 0) {
-    badCoordinates.push('-Z');
-  }
-  if (currentCoordinates.z === nextTickInfo.gameInfo.edgeLength - 1) {
-    badCoordinates.push(('+Z'));
-  }
-
-  const possibleDirections = allDirections.filter(d => !badCoordinates.includes(d));
-  return {
-    task: 'MOVE',
-    direction: possibleDirections[Math.floor(Math.random() * possibleDirections.length)]
-  };
-};
-
-const getDirections = (nextTickInfo) => {
-  const numOfTasksToDo = nextTickInfo.gameInfo.numOfTasksPerTick;
-  const botDirections = [];
-  const possibleTasks = [getMoveDirection, getNoopDirection, getPlaceBombDirection];
-  for (let i = 0; i < numOfTasksToDo; i++) {
-    const task = possibleTasks[Math.floor(Math.random() * possibleTasks.length)];
-    botDirections.push(task(nextTickInfo));
-  }
-  return botDirections;
-};
-
-var cubeLength, cube;
+var cubeLength, cube, bots;
 
 const getTasks = (tickInfo) => {
   const others = tickInfo.players.filter(p => p.name != tickInfo.currentPlayer.name);
+  if (!bots) {
+    bots = others
+  }
+  else {
+    bots = utils.setPlayerMovement(bots, others);
+  }
+
   const me = tickInfo.players.filter(p => p.name === tickInfo.currentPlayer.name)[0];
   const bombs = tickInfo.items.filter(i => i.type === "BOMB");
   const playersInGame = others.length;
 
   cubeLength = tickInfo.gameInfo.edgeLength;
-  cube = createCube(cubeLength, others, bombs);
+  cube = utils.createCube(cubeLength, others, bombs);
+
+  const nearestItems = utils.getNearestItems(me, cube);
+  console.log("Nearest" : nearestItems);
   
-  const nearestBomb = getNearestBomb(me); // [x, y, z]
-
+  let tasks = [];
+  for (let i = 0; i < tickInfo.gameInfo.numOfTasksPerTick; i++) {
+    tasks.push({task: "NOOP"})
+  }
+  return tasks;
 };
-
-const getNearestItems = ({x, y, z}, level = 1) => {
-
-  let nearest = [];
-  for (let zi = -level; zi <= level; zi++) {
-    let zIndex = z - +zi;
-    if (!validCoordinate(zIndex)) continue;
-
-    for (let xi = -level; xi <= level ; xi++ ) {
-      let xIndex = x + xi;
-      if (!validCoordinate(xIndex)) break;
-
-      for (let yi = -level; yi <= level ; yi++ ) {
-        let yIndex = y + yi;
-        if (!validCoordinate(yIndex)) break;
-
-        if (cube[xIndex, yIndex, zIndex]) {
-          nearest.push(cube[newX, y, z]);
-        }
-      }
-    }
-  }
-
-  if (nearest.length === 0) {
-    return getNearestItems({ x, y, z }, level++);
-  }
-  else {
-    return nearest;
-  }
-  
-  function validCoordinate (coordinate) {
-    return coordinate >= 0 && coordinate < cubeLength;
-  }
-};
-
-const createCube = (length, players, bombs) => {
-  let defaultArray = [...Array(length).fill( Array(length).fill( [...Array(length)]) )];
-
-  for (let player of players) {
-    defaultArray[player.x, player.y, player.z] = "P";
-  }
-  
-  for (let bomb of bombs) {
-    defaultArray[bomb.x, bomb.y, bomb.z] = "P";
-  }
-
-  return defaultArray;
-};
-
 
 http.createServer((req, res) => {
   if (req.method === 'POST') {
