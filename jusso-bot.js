@@ -19,6 +19,7 @@ const getTasks = (tickInfo) => {
     bots = utils.setPlayerMovement(bots, others);
   }
 
+  console.log("Bots", bots);
   const me = tickInfo.players.filter(p => p.name === tickInfo.currentPlayer.name)[0];
   const bombs = tickInfo.items.filter(i => i.type === "BOMB");
   const playersInGame = others.length;
@@ -27,7 +28,7 @@ const getTasks = (tickInfo) => {
   cube = utils.createCube(cubeLength, others, bombs);
 
   const nearestItems = utils.getNearestItems(me, cube);
-  console.log("Nearest" : nearestItems);
+  console.log("Nearest", nearestItems);
   
   let tasks = [];
   for (let i = 0; i < tickInfo.gameInfo.numOfTasksPerTick; i++) {
