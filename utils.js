@@ -53,8 +53,8 @@ module.exports = {
                     yIndex = y + yi;
                     if (!validCoordinate(yIndex)) continue;
 
-                    if (cube[xIndex, yIndex, zIndex]) {
-                        nearest.push([xIndex, yIndex, zIndex, cube[xIndex][yIndex][zIndex]]);
+                    if (cube[xIndex][yIndex][zIndex]) {
+                        nearest.push({x: xIndex, y: yIndex, z: zIndex, item: cube[xIndex][yIndex][zIndex]});
                     }
                 }
             }
