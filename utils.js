@@ -1,36 +1,63 @@
 var self = module.exports = {
-    setPlayerMovement (previous, current) {
+    addDirection (location, direction) {
+        if (direction === '+X') {
+            location.x = location.x +1;
+        }
+        else if (direction === '-X') {
+            location.x = location.x -1;
+        }
+        else if (direction === '+Y') {
+            location.y = location.y +1;
+        }
+        else if (direction === '-Y') {
+            location.y = location.y -1;
+        }
+        else if (direction === '+Z') {
+            location.z = location.z +1;
+        }
+        else if (direction === '-Z') {
+            location.z = location.z -1;
+        }
+        
+        return location;
+    },
+    setPlayerMovement (previous, current, ticksPerMove) {
         let bots = previous.map( b => {
             let bot = current.filter( o => o.name === b.name)[0];
             if (!bot) {
                 return {};
             }
-            let movement = [];
+            let movements = [];
             if (b.x != bot.x) {
-                if (bot.x > b.x) movement.push('+X');
-                else movement.push('-X');
+                if (bot.x > b.x) movements.push('+X');
+                else movements.push('-X');
             }
             if (b.y != bot.y) {
-                if (bot.y > b.y) movement.push('+Y');
-                else movement.push('-Y');
+                if (bot.y > b.y) movements.push('+Y');
+                else movements.push('-Y');
             }
             if (b.z != bot.z) {
-                if (bot.z > b.z) movement.push('+Z');
-                else movement.push('-Z');
+                if (bot.z > b.z) movements.push('+Z');
+                else movements.push('-Z');
             }
-            if (movement.length === 0) {
-                movement.push("NOOP");
+            let movesCountPerTick = movements.length;
+            if (movements.length === 0) {
+                for (var i = 0; i < ticksPerMove; i++) {
+                    movements.push("NOOP");
+                }
             }
 
             let allMovements = [];
             if(b.movements) {
-                allMovements = [...b.movements, ...movement];
+                allMovements = [...b.movements, ...movements];
             }
             else {
-                allMovements = movement;
+                allMovements = movements;
             }
 
             bot.movements = allMovements;
+            bot.movesCountPerTick = movesCountPerTick;
+            
             return bot;
         });
 
@@ -39,12 +66,13 @@ var self = module.exports = {
     },
 
     getLongestPath({x, y, z}, cube, moves = [], visited = [], direction = "") {
+        const movesCount = 5;
         let zIndex = z, xIndex = x, yIndex = y;
         switch(direction) {
             case "+X":
-                if (visited.length < 5 && validCoordinate(xIndex + 1, yIndex, zIndex) && !cube[xIndex+1][yIndex][zIndex] && !visited.includes(`${xIndex+1}|${yIndex}|${zIndex}`)) {
+                if (moves.length < movesCount && self.isValidCoordinate(xIndex + 1, yIndex, zIndex, cube.length) && !cube[xIndex+1][yIndex][zIndex] && !visited.includes(`${xIndex+1}|${yIndex}|${zIndex}`)) {
                     let nearest = self.getNearestItems({x: xIndex +1,y,z}, cube);
-                    if (nearest.lengh == 0 || nearest[0].moves > 1) {
+                    if (nearest.length === 0 || nearest[0].moves > 1) {
                         moves.push("+X");
                         let newVisited = [...visited, `${xIndex+1}|${yIndex}|${zIndex}`];
                         return checkLongest({x: xIndex +1, y, z}, cube, moves, newVisited);
@@ -53,9 +81,9 @@ var self = module.exports = {
                 return moves;
                 break;
             case "-X":
-                if (visited.length < 5 && validCoordinate(xIndex - 1, yIndex, zIndex) && !cube[xIndex-1][yIndex][zIndex] && !visited.includes(`${xIndex-1}|${yIndex}|${zIndex}`)) {
+                if (moves.length < movesCount && self.isValidCoordinate(xIndex - 1, yIndex, zIndex, cube.length) && !cube[xIndex-1][yIndex][zIndex] && !visited.includes(`${xIndex-1}|${yIndex}|${zIndex}`)) {
                     let nearest = self.getNearestItems({x: xIndex-1,y,z}, cube);
-                    if (nearest.lengh == 0 || nearest[0].moves > 1) {
+                    if (nearest.length === 0 || nearest[0].moves > 1) {
                         moves.push("-X");
                         let newVisited = [...visited, `${xIndex-1}|${yIndex}|${zIndex}`];
                         return checkLongest({x: xIndex -1, y, z}, cube, moves, newVisited);
@@ -64,9 +92,9 @@ var self = module.exports = {
                 return moves;
                 break;
             case "+Y":
-                if (visited.length < 5 && validCoordinate(xIndex, yIndex + 1, zIndex) && !cube[xIndex][yIndex+1][zIndex] && !visited.includes(`${xIndex}|${yIndex+1}|${zIndex}`)) {
+                if (moves.length < movesCount && self.isValidCoordinate(xIndex, yIndex + 1, zIndex, cube.length) && !cube[xIndex][yIndex+1][zIndex] && !visited.includes(`${xIndex}|${yIndex+1}|${zIndex}`)) {
                     let nearest = self.getNearestItems({x,y:yIndex+1,z}, cube);
-                    if (nearest.lengh == 0 || nearest[0].moves > 1) {
+                    if (nearest.length === 0 || nearest[0].moves > 1) {
                         moves.push("+Y");
                         let newVisited = [...visited, `${xIndex}|${yIndex+1}|${zIndex}`];
                         return checkLongest({x, y: yIndex+1, z}, cube, moves, newVisited);
@@ -75,9 +103,9 @@ var self = module.exports = {
                 return moves;
                 break;
             case "-Y":
-                if (visited.length < 5 && validCoordinate(xIndex, yIndex - 1, zIndex) && !cube[xIndex][yIndex-1][zIndex] && !visited.includes(`${xIndex}|${yIndex-1}|${zIndex}`)) {
+                if (moves.length < movesCount && self.isValidCoordinate(xIndex, yIndex - 1, zIndex, cube.length) && !cube[xIndex][yIndex-1][zIndex] && !visited.includes(`${xIndex}|${yIndex-1}|${zIndex}`)) {
                     let nearest = self.getNearestItems({x,y:yIndex-1,z}, cube);
-                    if (nearest.lengh == 0 || nearest[0].moves > 1) {
+                    if (nearest.length === 0 || nearest[0].moves > 1) {
                         moves.push("-Y");
                         let newVisited = [...visited, `${xIndex}|${yIndex-1}|${zIndex}`];
                         return checkLongest({x, y: yIndex-1, z}, cube, moves, newVisited);
@@ -86,9 +114,9 @@ var self = module.exports = {
                 return moves;
                 break;
             case "+Z":
-                if (visited.length < 5 && validCoordinate(xIndex, yIndex, zIndex+1) && !cube[xIndex][yIndex][zIndex+1] && !visited.includes(`${xIndex}|${yIndex}|${zIndex+1}`)) {
+                if (moves.length < movesCount && self.isValidCoordinate(xIndex, yIndex, zIndex+1, cube.length) && !cube[xIndex][yIndex][zIndex+1] && !visited.includes(`${xIndex}|${yIndex}|${zIndex+1}`)) {
                     let nearest = self.getNearestItems({x,y,z: zIndex+1}, cube);
-                    if (nearest.lengh == 0 || nearest[0].moves > 1) {
+                    if (nearest.length === 0 || nearest[0].moves > 1) {
                         moves.push("+Z");
                         let newVisited = [...visited, `${xIndex}|${yIndex}|${zIndex+1}`];
                         return checkLongest({x, y, z: zIndex+1}, cube, moves, newVisited);
@@ -97,9 +125,9 @@ var self = module.exports = {
                 return moves;
                 break;
             case "-Z":
-                if (visited.length < 5 && validCoordinate(xIndex, yIndex, zIndex-1) && !cube[xIndex][yIndex][zIndex-1] && !visited.includes(`${xIndex}|${yIndex}|${zIndex-1}`)) {
+                if (moves.length < movesCount && self.isValidCoordinate(xIndex, yIndex, zIndex-1, cube.length) && !cube[xIndex][yIndex][zIndex-1] && !visited.includes(`${xIndex}|${yIndex}|${zIndex-1}`)) {
                     let nearest = self.getNearestItems({x,y,z: zIndex-1}, cube);
-                    if (nearest.lengh == 0 || nearest[0].moves > 1) {
+                    if (nearest.length === 0 || nearest[0].moves > 1) {
                         moves.push("-Z");
                         let newVisited = [...visited, `${xIndex}|${yIndex}|${zIndex-1}`];
                         return checkLongest({x, y, z: zIndex-1}, cube, moves, newVisited);
@@ -129,13 +157,13 @@ var self = module.exports = {
             return biggest;
 
         }
-        function validCoordinate (x, y, z) {
-            if (x >= 0 && x < cube.length && y >= 0 && y < cube.length && z >= 0 && z < cube.length) {
-                return true;
-            }
-            return false;
-        }
+    },
 
+    isValidCoordinate (x, y, z, length) {
+        if (x >= 0 && x < length && y >= 0 && y < length && z >= 0 && z < length) {
+            return true;
+        }
+        return false;
     },
 
     getNearestItems ({x, y, z}, cube, level = 0, includeWalls = true) {
@@ -149,7 +177,7 @@ var self = module.exports = {
                 xIndex = x + xi;
                 for (let yi = -level; yi <= level ; yi++ ) {
                     yIndex = y + yi;
-                    if (validCoordinate(xIndex, yIndex, zIndex)) {
+                    if (self.isValidCoordinate(xIndex, yIndex, zIndex, cube.length)) {
                         if (cube[xIndex][yIndex][zIndex]) {
                             nearest.push({x: xIndex, y: yIndex, z: zIndex, item: cube[xIndex][yIndex][zIndex]});
                         }
@@ -181,6 +209,7 @@ var self = module.exports = {
 
                 nearest = nearest.filter(i => i.moves === nearest[0].moves);
             }
+         
             return nearest;
         }
         else {
@@ -189,13 +218,6 @@ var self = module.exports = {
         
         function calculateMoves(newX, newY, newZ) {
             return Math.abs(x - newX) + Math.abs(y - newY) + Math.abs(z - newZ);
-        }
-
-        function validCoordinate (x, y, z) {
-            if (x >= 0 && x < cube.length && y >= 0 && y < cube.length && z >= 0 && z < cube.length) {
-                return true;
-            }
-            return false;
         }
     },
 

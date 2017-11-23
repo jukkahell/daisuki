@@ -11,30 +11,8 @@ const getRandomInt = (max, min = 0) => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-const addDirection = (location, direction) => {
-  if (direction === '+X') {
-    location.x = location.x +1;
-  }
-  else if (direction === '-X') {
-    location.x = location.x -1;
-  }
-  else if (direction === '+Y') {
-    location.y = location.y +1;
-  }
-  else if (direction === '-Y') {
-    location.y = location.y -1;
-  }
-  else if (direction === '+Z') {
-    location.z = location.z +1;
-  }
-  else if (direction === '-Z') {
-    location.z = location.z -1;
-  }
 
-  return location;
-};
-
-var cubeLength, cube, bots, items, previous, id;
+var bots, previous, mymoves = [], myallmoves = [];
 
 const getTasks = (tickInfo) => {
   if (tickInfo.gameInfo.currentTick === 0) {
@@ -42,7 +20,7 @@ const getTasks = (tickInfo) => {
     bots = undefined;
     console.log("restart")
   }
-  id = tickInfo.gameInfo.id;
+  const tasksNeeded = tickInfo.gameInfo.numOfTasksPerTick;
   const otherPlayers = tickInfo.players.filter(p => p.name && p.name != tickInfo.currentPlayer.name);
   const me = tickInfo.players.filter(p => p.name === tickInfo.currentPlayer.name)[0];
   const bombs = tickInfo.items.filter(i => i.type === "BOMB");
@@ -52,89 +30,93 @@ const getTasks = (tickInfo) => {
     previous = me;
   }
   else {
-    bots = utils.setPlayerMovement(bots, otherPlayers);
+    bots = utils.setPlayerMovement(bots, otherPlayers, tasksNeeded);
     bots = bots.filter(b => b.name);
   }  
   
+  const cubeLength = tickInfo.gameInfo.edgeLength;
+  const cube = utils.createCube(cubeLength, otherPlayers, bombs);
+
+  let someoneTriedToHit = cube[previous.x][previous.y][previous.z] === "B";
+
   let setBomb = false;
-  let bombLocation = {};
+  let bombLocations = [];
   if (bots[0].movements && bots[0].movements.length > 2) {
-    movements = bots[0].movements;
-    let last = movements[movements.length-1]
-    let secondLast = movements[movements.length-2]
-    let thirdLast = movements[movements.length-3]
-    if (last === thirdLast && (secondLast != last && secondLast[1] == last[1])) {
-      //going back and forth
-      setBomb = true;
-      bombLocation = {x: bots[0].x, y: bots[0].y, z: bots[0].z};
-      bombLocation = addDirection(bombLocation, secondLast);
+    
+    for (let bot of bots) {
+      let movements = bot.movements;
+      let last = movements[movements.length-1];
+      let secondLast = movements[movements.length-2];
+      let thirdLast = movements[movements.length-3];
+      let bombLocation = {x: bot.x, y: bot.y, z: bot.z};
+
+      if (last === thirdLast && (secondLast != last && secondLast[1] == last[1])) {
+        //going back and forth
+        bombLocation = utils.addDirection(bombLocation, secondLast);
+        bombLocations.push(bombLocation);
+      }
+      else if (secondLast === last) {
+        bombLocation = utils.addDirection(bombLocation, last);
+        if (utils.isValidCoordinate(bombLocation.x, bombLocation.y, bombLocation.z, cubeLength) && cube[bombLocation.x][bombLocation.y][bombLocation.z] != 'B') {
+          bombLocations.push(bombLocation);
+        }
+      }
     }
   }
-
-  cubeLength = tickInfo.gameInfo.edgeLength;
-  cube = utils.createCube(cubeLength, otherPlayers, bombs);
 
   const nearestItems = utils.getNearestItems(me, cube);
-  const longestPath = utils.getLongestPath(me, cube, [], [`${previous.x}|${previous.y}|${previous.z}`]);
-
-  items = tickInfo.items;
-
+  let visited = [`${previous.x}|${previous.y}|${previous.z}`];
+ 
+  if (mymoves.length >= 2) {
+    let dir = mymoves[0];
+    let loc = utils.addDirection({x: me.x, y: me.y, z: me.z}, dir);
+    if (utils.isValidCoordinate(loc.x, loc.y, loc.z, cubeLength)) {
+      visited.push(`${loc.x}|${loc.y}|${loc.z}`)
+    }
+    mymoves = [];
+  }
+  const longestPath = utils.getLongestPath(me, cube, [], visited);
   previous = me;
 
-  if (setBomb) {
-    if (longestPath.length > 0) {
-      return [{
+  let tasks = [];
+
+  for (let i = 0; i < tasksNeeded; i++) {
+    if ((!someoneTriedToHit || i > 0) && bombLocations.length > 0) {
+      let bombLocation = bombLocations.shift();
+      tasks.push({
         task: 'BOMB',
         x: bombLocation.x,
         y: bombLocation.y,
         z: bombLocation.z
-      },{
+      });
+    }
+    else if (longestPath.length > 0) {
+      let dir = longestPath.shift();
+      tasks.push({
         task: 'MOVE',
-        direction: longestPath[0]
-      }]
+        direction: dir
+      });
+
+      myallmoves.push(dir);
+
+      if (mymoves.length === 0 || mymoves[0] === dir) {
+        mymoves.push(dir);
+      }
+      else {
+        mymoves = [];
+      }
     }
     else {
-      return [{
+      tasks.push({
         task: 'BOMB',
-        x: bombLocation.x,
-        y: bombLocation.y,
-        z: bombLocation.z
-      },{
-        task: 'NOOP'
-      }]
-    }
+        x: otherPlayers[0].x,
+        y: otherPlayers[0].y,
+        z: otherPlayers[0].z
+      });
+    } 
   }
-  else if (longestPath.length === 1) {
-    return [{
-      task: 'MOVE',
-      direction: longestPath[0]
-    },
-    {
-      task: 'BOMB',
-      x: bots[0].x,
-      y: bots[0].y,
-      z: bots[0].z
-    }];
-  }
-  else if (longestPath.length > 1) {
-    return [{
-      task: 'MOVE',
-      direction: longestPath[0]
-    },
-    {
-      task: 'BOMB',
-      x: bots[0].x,
-      y: bots[0].y,
-      z: bots[0].z
-    }];
-  }
-  else {
-    return [{
-      task: 'NOOP'
-    },{
-      task: 'NOOP'
-    }];
-  }
+
+  return tasks;
 
 };
 
