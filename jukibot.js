@@ -300,7 +300,15 @@ const calculateDirection = (tickInfo, me) => {
     }
   }
 
-  
+  // Sould I use this or not...
+  //if (goodDirs.length > 2) {
+  //  const dirRepeats = latestDirRepeats();
+  //  if (dirRepeats >= MAX_DIR_REPEATS) {
+  //    const previousDir = previousDirs[previousDirs.length-1];
+  //    console.log("We have " + dirRepeats + " " + previousDir + " movements done.");
+  //    goodDirs.pop(previousDir);
+  //  }
+  //}
 
   const moveDir = goodDirs[getRandomInt(goodDirs.length-1)];
 
