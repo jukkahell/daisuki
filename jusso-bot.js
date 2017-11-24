@@ -7,24 +7,34 @@ if (!port) {
   process.exit(1);
 }
 
-const getRandomInt = (max, min = 0) => {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
-
-
-var bots, previous, mymoves = [], myallmoves = [];
+var bots, previous;
+var mymoves = [];
+var myallmoves = [];
+var bombCount;
+var noBombscount = 0;
 
 const getTasks = (tickInfo) => {
   if (tickInfo.gameInfo.currentTick === 0) {
     previous = undefined;
     bots = undefined;
+    noBombscount = 0;
+    bombCount = 0;
     console.log("restart")
   }
   const tasksNeeded = tickInfo.gameInfo.numOfTasksPerTick;
   const otherPlayers = tickInfo.players.filter(p => p.name && p.name != tickInfo.currentPlayer.name);
   const me = tickInfo.players.filter(p => p.name === tickInfo.currentPlayer.name)[0];
   const bombs = tickInfo.items.filter(i => i.type === "BOMB");
-  
+  if (tickInfo.gameInfo.currentTick > 0) {
+    if (bombs.length == bombCount) {
+      noBombscount++;
+    }
+    else {
+      noBombscount = 0;
+    }
+    bombCount = bombs.length;
+  }
+
   if (!bots) {
     bots = otherPlayers
     previous = me;
@@ -62,6 +72,11 @@ const getTasks = (tickInfo) => {
         }
       }
     }
+  }
+
+  if (bombLocations.length === 0 && noBombscount > 3) {
+    bombLocations.push({x: bots[0].x, y: bots[0].y, z: bots[0].z});
+    noBombscount = 0;
   }
 
   const nearestItems = utils.getNearestItems(me, cube);

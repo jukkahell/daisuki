@@ -154,9 +154,16 @@ var self = module.exports = {
                 }
                 return current;
             }, []);
-            return biggest;
+            let allBiggest = all.filter( p => p.length === biggest.length);
+
+
+            return allBiggest[self.getRandomInt(allBiggest.length-1)];
 
         }
+    },
+
+    getRandomInt (max, min = 0) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     },
 
     isValidCoordinate (x, y, z, length) {
