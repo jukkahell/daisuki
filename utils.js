@@ -240,10 +240,12 @@ var self = module.exports = {
 
         for (let player of players) {
             defaultArray[player.x][player.y][player.z] = "P";
-          }
+        }
         
         for (let bomb of bombs) {
-            defaultArray[bomb.x][bomb.y][bomb.z] = "B";
+            if (self.isValidCoordinate(bomb.x, bomb.y, bomb.z, length)) {
+                defaultArray[bomb.x][bomb.y][bomb.z] = "B";
+            }
         }
 
         return defaultArray;

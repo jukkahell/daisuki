@@ -94,9 +94,11 @@ const getTasks = (tickInfo) => {
   previous = me;
 
   let tasks = [];
+  let moved = false;
 
+  console.log(someoneTriedToHit);
   for (let i = 0; i < tasksNeeded; i++) {
-    if ((!someoneTriedToHit || i > 0) && bombLocations.length > 0) {
+    if ((!someoneTriedToHit || (i > 0 && moved)) && bombLocations.length > 0) {
       let bombLocation = bombLocations.shift();
       tasks.push({
         task: 'BOMB',
@@ -105,13 +107,13 @@ const getTasks = (tickInfo) => {
         z: bombLocation.z
       });
     }
-    else if (longestPath.length > 0) {
+    else if (longestPath.length > 0 && !moved) {
       let dir = longestPath.shift();
       tasks.push({
         task: 'MOVE',
         direction: dir
       });
-
+      moved = true;
       myallmoves.push(dir);
 
       if (mymoves.length === 0 || mymoves[0] === dir) {
@@ -122,11 +124,25 @@ const getTasks = (tickInfo) => {
       }
     }
     else {
-      tasks.push({
-        task: 'BOMB',
+      let location = {
         x: otherPlayers[0].x,
         y: otherPlayers[0].y,
         z: otherPlayers[0].z
+      }
+      let directions = ["+X", "-X", "+Y", "-Y", "+Z", "-Z", "NOOP"];
+      for (let i = 0; i < directions.length; i++) {
+        let rand = utils.getRandomInt(directions.length-1);
+        location = utils.addDirection(location, directions[rand]);
+        if (utils.isValidCoordinate(location.x, location.y, location.z, cubeLength) && cube[location.x][location.y][location.z] !== "B") {
+          break;
+        }
+      }
+
+      tasks.push({
+        task: 'BOMB',
+        x: location.x,
+        y: location.y,
+        z: location.z
       });
     } 
   }
