@@ -19,6 +19,9 @@ const EMPTY_AREA_FACTOR = 1; // How much we weight the above amount. If 300 cell
 
 var previousTasks = [];
 var previousDirs = [];
+var previousPosition = {};
+var noDirectShotRounds = 0;
+var enemyMovements = [];
 
 const getRandomInt = (max, min = 0) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -209,52 +212,67 @@ const latestTaskRepeats = () => {
     return (i - 1);
 };
 
-const latestDirRepeats = () => {
-    if (previousDirs.length < 2) {
-        return previousDirs.length;
-    }
+const recognizeMovementPatterns = (bombs) => {
+    let bombLocations = [];
+    for (let bot of enemyMovements) {
+        if (bot.movements && bot.movements.length > 2) {
+            let movements = bot.movements;
+            let last = movements[movements.length - 1];
+            let secondLast = movements[movements.length - 2];
+            let thirdLast = movements[movements.length - 3];
+            let bombLocation = {x: bot.x, y: bot.y, z: bot.z};
 
-    let latestDir = previousDirs[previousDirs.length - 1];
-    let previousDir = previousDirs[previousDirs.length - 2];
-
-    if (latestDir !== previousDir) {
-        return 1;
+            if (last === thirdLast && (secondLast !== last && secondLast[1] === last[1])) {
+                //going back and forth
+                bombLocation = getMovePosition(secondLast, bombLocation);
+                bombLocations.push(bombLocation);
+            }
+            else if (secondLast === last) {
+                bombLocation = getMovePosition(last, bombLocation);
+                if (!posCollidesWithBomb(bombLocation, bombs)) {
+                    bombLocations.push(bombLocation);
+                }
+            }
+        }
     }
-
-    let i = 2;
-    while (latestDir === previousDir && i < previousDirs.length) {
-        i++;
-        previousDir = previousDirs[previousDirs.length - i];
-    }
-    return i - 1;
+    return bombLocations;
 };
 
-const determineNextTask = (tickInfo, me) => {
+const determineNextTask = (tickInfo, me, i) => {
     const enemies = tickInfo.players.filter(p => p.name && p.name !== me.name);
     const bombs = tickInfo.items.filter(i => i.type === BOMB);
     const numOfTasks = tickInfo.gameInfo.numOfTasksPerTick;
-    const edgeLength = tickInfo.gameInfo.edgeLength;
 
-    // Move to prevent staying too long still
-    if (latestTaskRepeats() >= MAX_TASK_REPEATS) {
-        return previousTasks[previousTasks.length - 1] === MOVE ? BOMB : MOVE;
+    if (i === 0 && noDirectShotRounds >= 3) {
+
     }
-
-    // Let's move if we are on the edge
-    if (me.x === 0 || me.y === 0 || me.z === 0) {
+    else if ((i === 0 && numOfTasks > 1) || (i === 1 && numOfTasks > 2)) {
         return MOVE;
     }
 
-    // Move if enemy bot is able to collide with us
-    for (let enemy of enemies) {
-        if (enemyTooClose(enemy, me, numOfTasks)) {
+    if (i < 2) {
+
+        // Let's move if we are on the edge
+        if (me.x === 0 || me.y === 0 || me.z === 0) {
             return MOVE;
         }
-    }
 
-    // Move if we have too few options where to move
-    if (getFreePositionsNextToMe(me, bombs).length <= TOO_FEW_MOVE_POSSIBILITIES) {
-        return MOVE;
+        // Move if enemy bot is able to collide with us
+        for (let enemy of enemies) {
+            if (enemyTooClose(enemy, me, numOfTasks)) {
+                return MOVE;
+            }
+        }
+
+        // Move if we have too few options where to move
+        if (getFreePositionsNextToMe(me, bombs).length <= TOO_FEW_MOVE_POSSIBILITIES) {
+            return MOVE;
+        }
+
+        // Move to prevent staying too long still
+        if (latestTaskRepeats() >= MAX_TASK_REPEATS) {
+            return previousTasks[previousTasks.length - 1] === MOVE ? BOMB : MOVE;
+        }
     }
 
     return BOMB;
@@ -317,16 +335,6 @@ const calculateDirection = (tickInfo, me) => {
         }
     }
 
-    // Sould I use this or not...
-    //if (goodDirs.length > 2) {
-    //  const dirRepeats = latestDirRepeats();
-    //  if (dirRepeats >= MAX_DIR_REPEATS) {
-    //    const previousDir = previousDirs[previousDirs.length-1];
-    //    console.log("We have " + dirRepeats + " " + previousDir + " movements done.");
-    //    goodDirs.pop(previousDir);
-    //  }
-    //}
-
     const moveDir = goodDirs[getRandomInt(goodDirs.length - 1)];
     const newPos = getMovePosition(moveDir, me);
 
@@ -355,10 +363,10 @@ const calculateBombPosition = (tickInfo, me) => {
         }
     }
 
-    console.log("Target bot: " + target.name);
+    console.log("Target bot: ", target);
 
     let possibleBombPositions = getFreePositionsNextToMe(target, targetSurroundingBombs);
-
+    console.log(possibleBombPositions);
     // If there are still open cells where to place a bomb, place it randomly on one of them
     if (possibleBombPositions.length > 0) {
 
@@ -367,10 +375,27 @@ const calculateBombPosition = (tickInfo, me) => {
             return !(pos.x === me.x && pos.y === me.y && pos.z === me.z);
         });
 
-        const bombPos = possibleBombPositions[getRandomInt(possibleBombPositions.length - 1)];
-        console.log("Bomb position: " + bombPos.x + ":" + bombPos.y + ":" + bombPos.z);
-        addBombToTickInfo(tickInfo, bombPos);
-        return placeBomb(bombPos.x, bombPos.y, bombPos.z);
+        // Check what position has the less obstacles and throw the bomb there
+        let obstacleCount = 10;
+        let bestBombPosition;
+        for (let possibleBombPos of possibleBombPositions) {
+            const obstaclesNextToBombPos = obstaclesNextToObject(possibleBombPos, bombs, enemies, edgeLength);
+            let currentObstacles = obstaclesNextToBombPos.length;
+            if (currentObstacles < obstacleCount) {
+                bestBombPosition = possibleBombPos;
+                obstacleCount = currentObstacles;
+            }
+        }
+console.log("BEST BOMB POSITION", bestBombPosition);
+        let enemyMovementPattern = recognizeMovementPatterns(bombs);
+        if (enemyMovementPattern.length > 0) {
+            console.log("PATTERN RECOGNITION");
+            bestBombPosition = enemyMovementPattern[getRandomInt(enemyMovementPattern.length - 1)]
+        }
+
+        addBombToTickInfo(tickInfo, bestBombPosition);
+console.log("BEST BOMB POSITION AGAIN", bestBombPosition);
+        return placeBomb(bestBombPosition.x, bestBombPosition.y, bestBombPosition.z);
     }
     // Otherwise we can just destroy the bot by placing the bomb over it
     else {
@@ -382,15 +407,23 @@ const calculateBombPosition = (tickInfo, me) => {
 const getTasks = (tickInfo) => {
     if (tickInfo.gameInfo.currentTick === 0) {
         previousTasks = [];
+        previousDirs = [];
+        previousPosition = {};
+        noDirectShotRounds = 0;
+        enemyMovements = tickInfo.players.filter(p => p.name && p.name !== tickInfo.currentPlayer.name);
         console.log("restart")
     }
 
+    console.log("Tick " + tickInfo.gameInfo.currentTick);
     const numOfTasks = tickInfo.gameInfo.numOfTasksPerTick;
     const tasks = [];
 
+    const currentPos = {x:tickInfo.currentPlayer.x, y:tickInfo.currentPlayer.y, z:tickInfo.currentPlayer.z};
+    enemyPreAnalyzer(tickInfo);
+
     for (let i = 0; i < numOfTasks; i++) {
         const me = tickInfo.players.filter(p => p.name === tickInfo.currentPlayer.name)[0];
-        const task = determineNextTask(tickInfo, me);
+        const task = determineNextTask(tickInfo, me, i);
         console.log("I wanna " + task);
         let nextTask = undefined;
         switch (task) {
@@ -405,8 +438,71 @@ const getTasks = (tickInfo) => {
         tasks.push(nextTask);
     }
 
+    previousPosition = currentPos;
+
     return tasks;
 };
+
+const enemyPreAnalyzer = (tickInfo) => {
+    if (posCollidesWithBomb(previousPosition, tickInfo.items.filter(i => i.type === BOMB))) {
+        noDirectShotRounds = 0;
+    } else {
+        noDirectShotRounds++;
+    }
+
+    const currentEnemyPositions = tickInfo.players.filter(p => p.name && p.name !== tickInfo.currentPlayer.name);
+    const numOfTasks = tickInfo.gameInfo.numOfTasksPerTick;
+
+    if (tickInfo.gameInfo.currentTick > 0) {
+        const calculatedMoves = setEnemyMovements(enemyMovements, currentEnemyPositions, numOfTasks);
+        enemyMovements = calculatedMoves.filter(b => b.name);
+        console.log(enemyMovements);
+    }
+};
+
+const setEnemyMovements = (previous, current, ticksPerMove) => {
+    let bots = previous.map( b => {
+        let bot = current.filter( o => o.name === b.name)[0];
+        if (!bot) {
+            return {};
+        }
+        let movements = [];
+        if (b.x !== bot.x) {
+            if (bot.x > b.x) movements.push('+X');
+            else movements.push('-X');
+        }
+        if (b.y !== bot.y) {
+            if (bot.y > b.y) movements.push('+Y');
+            else movements.push('-Y');
+        }
+        if (b.z !==bot.z) {
+            if (bot.z > b.z) movements.push('+Z');
+            else movements.push('-Z');
+        }
+        let movesCountPerTick = movements.length;
+        if (movements.length === 0) {
+            for (let i = 0; i < ticksPerMove; i++) {
+                movements.push("NOOP");
+            }
+        }
+
+        let allMovements = [];
+        if(b.movements) {
+            allMovements = [...b.movements, ...movements];
+        }
+        else {
+            allMovements = movements;
+        }
+
+        bot.movements = allMovements;
+        bot.movesCountPerTick = movesCountPerTick;
+
+        return bot;
+    });
+
+    return bots;
+
+}
 
 http.createServer((req, res) => {
     if (req.method === 'POST') {
